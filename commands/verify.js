@@ -7,7 +7,7 @@ const { ok, fail } = require('../lib/util');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('verify')
-    .setDescription('Verify an accepted applicant and give them their staff position')
+    .setDescription('Manually verify someone (managers) — normally approve their proof in the verification channel')
     .addUserOption((o) => o.setName('user').setDescription('The new staff member').setRequired(true))
     .addStringOption((o) => o.setName('position').setDescription('Department / position').setRequired(true).setAutocomplete(true))
     .addAttachmentOption((o) => o.setName('proof').setDescription('Screenshot or proof (shown in the announcement)'))

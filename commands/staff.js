@@ -41,7 +41,7 @@ module.exports = {
     await interaction.deferReply();
     let res;
     if (sub === 'strike') res = await team.strike(interaction.client, t, { userId: user.id, by: interaction.user, reason });
-    else if (sub === 'unstrike') res = team.unstrike(t, user.id, interaction.options.getInteger('strike'), interaction.user);
+    else if (sub === 'unstrike') res = team.unstrike(t, user.id, interaction.options.getInteger('strike'), interaction.user, interaction.client);
     else if (sub === 'promote' || sub === 'demote') {
       const to = interaction.options.getString('to');
       const pos = to ? resolvePosition(t, to) : null;

@@ -7,7 +7,7 @@ const { getTeam, autocompletePosition, resolvePosition } = require('../lib/ctx')
 const { COLORS, embed, ok, fail } = require('../lib/util');
 
 const CHANNEL_TYPES = [
-  ['applications', 'Applications (staff server)'], ['announcements', 'Staff announcements (staff server)'], ['log', 'Staff log (staff server)'], ['breaks', 'Breaks / LOA (staff server)'], ['mainAnnouncements', 'Public new-staff post (main server)'],
+  ['applications', 'Applications (staff server)'], ['proof', 'Proof — applicants post proof here (staff server)'], ['verification', 'Verification requests for managers (staff server)'], ['announcements', 'Staff announcements (staff server)'], ['guide', 'New-staff guide / welcome (staff server)'], ['roster', 'Live roster message (staff server)'], ['strikes', 'Strike log (staff server)'], ['breaks', 'Breaks / LOA (staff server)'], ['log', 'General staff log (staff server)'], ['mainAnnouncements', 'Public new-staff post (main server)'],
 ];
 
 module.exports = {
@@ -19,7 +19,7 @@ module.exports = {
     .addSubcommand((s) => s.setName('manager').setDescription('Toggle a manager role (staff server) — managers can verify/promote/strike/LOA').addRoleOption((o) => o.setName('role').setDescription('Role in the staff server').setRequired(true)))
     .addSubcommand((s) => s.setName('role').setDescription('Set the Staff / LOA / Pending role for THIS server').addStringOption((o) => o.setName('type').setDescription('Which role').setRequired(true).addChoices({ name: 'Staff (given to every verified member)', value: 'staff' }, { name: 'LOA (given during breaks)', value: 'loa' }, { name: 'Pending (staff server: accepted, not yet verified)', value: 'pending' })).addRoleOption((o) => o.setName('role').setDescription('Role (leave empty to clear)')))
     .addSubcommand((s) => s.setName('department').setDescription('Create a department').addStringOption((o) => o.setName('name').setDescription('e.g. Moderation').setRequired(true).setMaxLength(40)).addStringOption((o) => o.setName('emoji').setDescription('Optional emoji').setMaxLength(8)))
-    .addSubcommand((s) => s.setName('position').setDescription('Create a position (level) in a department, or set its role for THIS server').addStringOption((o) => o.setName('department').setDescription('Department').setRequired(true).setAutocomplete(true)).addStringOption((o) => o.setName('name').setDescription('Position name, e.g. Trial Mod (lowest first!)').setRequired(true).setMaxLength(40)).addRoleOption((o) => o.setName('role').setDescription('Role in THIS server for this position')))
+    .addSubcommand((s) => s.setName('position').setDescription('Create a position (level) in a department, or set its role for THIS server').addStringOption((o) => o.setName('department').setDescription('Department').setRequired(true).setAutocomplete(true)).addStringOption((o) => o.setName('name').setDescription('Position name, e.g. Trial Mod (lowest first!)').setRequired(true).setMaxLength(40)).addRoleOption((o) => o.setName('role').setDescription('Role in THIS server for this position')).addStringOption((o) => o.setName('nickname').setDescription('Short tag used in nicknames, e.g. T-Mod').setMaxLength(12)))
     .addSubcommand((s) => s.setName('invite').setDescription('Permanent staff-server invite link sent to accepted applicants').addStringOption((o) => o.setName('url').setDescription('https://discord.gg/… (empty = auto-create a 1-use invite each time)')))
     .addSubcommand((s) => s.setName('view').setDescription('Show the current configuration')),
   autocomplete: autocompletePosition,
@@ -38,10 +38,10 @@ module.exports = {
       const e = embed(COLORS.blue, '⚙️ StaffHub configuration')
         .addFields(
           { name: 'Servers', value: `Main: **${main?.name || '?'}**\nStaff: **${staff?.name || '?'}**` },
-          { name: 'Channels (staff server)', value: `Applications: ${ch(t.channels.applications)}\nAnnouncements: ${ch(t.channels.announcements)}\nLog: ${ch(t.channels.log)}\nBreaks: ${ch(t.channels.breaks)}\nMain-server post: ${ch(t.channels.mainAnnouncements)}` },
+          { name: 'Channels (staff server)', value: CHANNEL_TYPES.map(([k, n]) => `${n.replace(/ \(.*\)/, '')}: ${ch(t.channels[k])}`).join('\n') },
           { name: 'Manager roles (staff server)', value: t.managerRoles.length ? t.managerRoles.map(role).join(' ') : '— (admins only)' },
           { name: 'Roles', value: `Staff: main ${role(t.roles.staffMain)} / staff ${role(t.roles.staffStaff)}\nLOA: main ${role(t.roles.loaMain)} / staff ${role(t.roles.loaStaff)}\nPending: ${role(t.roles.pendingStaff)}` },
-          { name: 'Departments', value: t.departments.length ? t.departments.map((d) => `**${d.name}**: ${d.levels.map((l) => l.name).join(' → ') || '_no positions_'}`).join('\n') : '— none (dashboard → Roster)' },
+          { name: 'Departments', value: t.departments.length ? t.departments.map((d) => `**${d.name}**: ${d.levels.map((l) => l.nick && l.nick !== l.name ? `${l.name} (${l.nick})` : l.name).join(' → ') || '_no positions_'}`).join('\n') : '— none (dashboard → Roster)' },
           { name: 'Other', value: `Nickname: \`${t.nicknameFormat}\`\nRequire application before verify: **${t.requireApplication ? 'yes' : 'no'}**\nStrike limit: **${t.strikeLimit}** → ${t.strikeAction}\nInvite: ${t.inviteUrl || 'auto'}` }
         );
       return interaction.reply({ embeds: [e], flags: MessageFlags.Ephemeral });
@@ -53,7 +53,9 @@ module.exports = {
       const wantMain = type === 'mainAnnouncements';
       if (chan && wantMain !== !inStaff) return fail(interaction, wantMain ? 'Run this in the **main** server to pick a main-server channel.' : 'Run this in the **staff** server to pick staff-server channels.');
       t.channels[type] = chan ? chan.id : null;
+      if (type === 'roster') t.rosterMessageId = null;
       store.save();
+      if (type === 'roster' && chan) await team.refreshRoster(interaction.client, t);
       return ok(interaction, `${CHANNEL_TYPES.find(([v]) => v === type)[1]} → ${chan ? `<#${chan.id}>` : 'cleared'}.`);
     }
     if (sub === 'manager') {
@@ -89,6 +91,8 @@ module.exports = {
       const created = !l;
       if (!l) { l = { id: store.uid(), name, roleMain: null, roleStaff: null }; d.levels.push(l); }
       if (r) l[here === 'main' ? 'roleMain' : 'roleStaff'] = r.id;
+      const nickTag = interaction.options.getString('nickname');
+      if (nickTag) l.nick = nickTag.trim();
       store.save();
       return ok(interaction, `${created ? 'Created' : 'Updated'} position **${name}** in **${d.name}**${r ? ` — ${here}-server role ${r}` : ''}.${l.roleMain && l.roleStaff ? '' : ` Still missing: ${!l.roleMain ? 'main-server role' : ''}${!l.roleMain && !l.roleStaff ? ' and ' : ''}${!l.roleStaff ? 'staff-server role' : ''} (run \`/setup position\` with the same name in the other server, or use the dashboard).`}`);
     }
