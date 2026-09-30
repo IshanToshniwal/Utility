@@ -25,8 +25,8 @@ app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
 // ---------------------------------------------------------------- client
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
-  partials: [Partials.GuildMember, Partials.Channel],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent], // MessageContent: to see proof images posted in the proof channel
+  partials: [Partials.GuildMember, Partials.Channel, Partials.Message],
 });
 client.commands = new Collection();
 client.recentErrors = recentErrors;
@@ -68,6 +68,7 @@ client.on('interactionCreate', async (interaction) => {
     }
     if (interaction.isButton()) return await components.handleButton(interaction);
     if (interaction.isModalSubmit()) return await components.handleModal(interaction);
+    if (interaction.isStringSelectMenu()) return await components.handleSelect(interaction);
     if (!interaction.isChatInputCommand()) return;
     const cmd = client.commands.get(interaction.commandName);
     if (cmd) await cmd.execute(interaction);
