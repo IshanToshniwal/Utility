@@ -22,7 +22,11 @@ module.exports = [
         if (app?.status === 'accepted') {
           if (t.roles.pendingStaff) await member.roles.add(t.roles.pendingStaff, 'Accepted applicant joined').catch(() => null);
           const mgr = t.managerRoles.map((r) => `<@&${r}>`).join(' ');
-          await team.post(client, t, 'applications', { content: mgr || null, embeds: [embed(COLORS.yellow, '🚪 Accepted applicant joined', `<@${member.id}> (application #${app.id}) just joined the staff server.\nVerify them with \`/verify user:@${member.user.username} position:…\` once you have checked their proof.`)] });
+          await team.post(client, t, 'applications', { content: mgr || null, embeds: [embed(COLORS.yellow, '🚪 Accepted applicant joined', `<@${member.id}> (application #${app.id}) just joined the staff server.\n${t.channels.proof ? `They should post their proof in <#${t.channels.proof}>; it will appear in the verification channel for approval.` : `Verify them with \`/verify user:@${member.user.username} position:…\` once you have checked their proof.`}`)] });
+          if (t.channels.proof) {
+            const ch = member.guild.channels.cache.get(t.channels.proof);
+            if (ch?.isTextBased()) await ch.send({ content: `👋 Welcome <@${member.id}>! Your application was accepted. Please post your **proof** (screenshot) here — or use \`/proof\` — and a manager will verify you and give you your position.` }).catch(() => null);
+          }
         }
       }
     },
