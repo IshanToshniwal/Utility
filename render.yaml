@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: staffhub-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run deploy
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_IDS
+        sync: false
+      - key: DATA_CHANNEL_ID
+        sync: false
+      - key: CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

@@ -1,0 +1,17 @@
+{
+  "name": "staffhub-bot",
+  "version": "1.0.0",
+  "description": "Discord staff-utility bot: applications, verification, roster, promotions, strikes, LOA — across a main server and a staff server, with an admin dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "engines": { "node": ">=18.0.0" },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "pg": "^8.13.0"
+  }
+}
