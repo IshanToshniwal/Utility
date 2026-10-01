@@ -90,7 +90,7 @@ Login with Discord at the bot's URL. Anyone with **Administrator** in the main o
 | General log | verifications, demotions, everything else — and the fallback for any channel left unset |
 | Main server post | optional public "welcome our new staff member" in the main server |
 
-All messages use Discord's **Components V2** cards (discord.js ≥ 14.21 — already in package.json).
+All messages use Discord's **Components V2** cards (discord.js ≥ 14.21 — already in package.json). Roster images need `@napi-rs/canvas` and `dejavu-fonts-ttf`, both installed by `npm install`; if they fail to install the roster falls back to text cards.
 
 ## 1. Discord application
 
