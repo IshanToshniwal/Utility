@@ -25,7 +25,7 @@ app.listen(PORT, () => console.log(`Web server listening on port ${PORT}`));
 
 // ---------------------------------------------------------------- client
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent], // MessageContent: to see proof images posted in the proof channel
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages], // MessageContent: proof channel + DM applications + activity stats
   partials: [Partials.GuildMember, Partials.Channel, Partials.Message],
 });
 client.commands = new Collection();
@@ -63,7 +63,7 @@ client.on('interactionCreate', async (interaction) => {
       return cmd?.autocomplete ? await cmd.autocomplete(interaction) : interaction.respond([]);
     }
     if (!interaction.inGuild()) {
-      if (interaction.isRepliable()) return interaction.reply({ content: 'Use this in a server.', flags: MessageFlags.Ephemeral });
+      if (interaction.isRepliable()) return interaction.reply(require('./lib/ui').fail('Use this in a server.'));
       return;
     }
     if (interaction.isButton()) return await components.handleButton(interaction);
@@ -75,8 +75,8 @@ client.on('interactionCreate', async (interaction) => {
   } catch (err) {
     console.error(`Error in ${interaction.commandName || interaction.customId}:`, err);
     if (!interaction.isRepliable()) return;
-    const msg = err?.code === 50013 ? '❌ I am missing permissions. Move my role above the staff roles and give me Manage Roles + Manage Nicknames in both servers.' : `❌ Something went wrong: ${err.message ?? err}`;
-    const payload = { content: msg, flags: MessageFlags.Ephemeral };
+    const text = err?.code === 50013 ? 'I am missing permissions. Move my role above the staff roles and give me Manage Roles + Manage Nicknames in both servers.' : `Something went wrong: ${err.message ?? err}`;
+    const payload = require('./lib/ui').fail(text);
     if (interaction.deferred || interaction.replied) await interaction.followUp(payload).catch(() => null);
     else await interaction.reply(payload).catch(() => null);
   }
