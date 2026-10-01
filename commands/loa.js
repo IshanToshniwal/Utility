@@ -1,5 +1,6 @@
 // /loa give|end (managers), /break (staff request), /active breaks
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const ui = require('../lib/ui');
 const team = require('../lib/team');
 const breaks = require('../lib/breaks');
 const { getTeam, requireManager } = require('../lib/ctx');
@@ -47,7 +48,7 @@ module.exports = [
       const ms = dur(interaction);
       if (!ms) return fail(interaction, 'Duration must look like `2d`, `1w`, `12h` (at least 1 minute, at most 90 days).');
       const res = await breaks.request(interaction.client, t, { userId: interaction.user.id, durationMs: ms, reason: interaction.options.getString('reason') });
-      return interaction.reply({ content: `${res.ok ? '✅' : '❌'} ${res.text}`, flags: MessageFlags.Ephemeral });
+      return interaction.reply(res.ok ? ui.ok(res.text, { ephemeral: true }) : ui.fail(res.text));
     },
   },
   {
@@ -58,7 +59,7 @@ module.exports = [
     async execute(interaction) {
       const t = await getTeam(interaction);
       if (!t) return;
-      return interaction.reply({ embeds: [breaks.activeEmbed(t)] });
+      return interaction.reply(ui.msg(breaks.activeCard(t)));
     },
   },
 ];

@@ -1,13 +1,14 @@
 // /setup — quick configuration from Discord. The dashboard can do all of this and more.
 // Roles are per-server: run the command in the server whose role you are picking.
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
 const store = require('../lib/store');
 const team = require('../lib/team');
 const { getTeam, autocompletePosition, resolvePosition } = require('../lib/ctx');
-const { COLORS, embed, ok, fail } = require('../lib/util');
+const { ok, fail } = require('../lib/util');
+const { COLORS, card, msg } = require('../lib/ui');
 
 const CHANNEL_TYPES = [
-  ['applications', 'Applications (staff server)'], ['proof', 'Proof — applicants post proof here (staff server)'], ['verification', 'Verification requests for managers (staff server)'], ['announcements', 'Staff announcements (staff server)'], ['guide', 'New-staff guide / welcome (staff server)'], ['roster', 'Live roster message (staff server)'], ['strikes', 'Strike log (staff server)'], ['breaks', 'Breaks / LOA (staff server)'], ['log', 'General staff log (staff server)'], ['mainAnnouncements', 'Public new-staff post (main server)'],
+  ['applications', 'Applications (staff server)'], ['proof', 'Proof — applicants post proof here (staff server)'], ['verification', 'Verification requests for managers (staff server)'], ['announcements', 'Staff announcements (staff server)'], ['guide', 'New-staff guide / welcome (staff server)'], ['roster', 'Live roster message (staff server)'], ['strikes', 'Strike log (staff server)'], ['breaks', 'Breaks / LOA (staff server)'], ['log', 'General staff log (staff server)'], ['reports', 'Weekly report (staff server)'], ['mainAnnouncements', 'Public new-staff post (main server)'],
 ];
 
 module.exports = {
@@ -17,7 +18,8 @@ module.exports = {
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addSubcommand((s) => s.setName('channel').setDescription('Set a channel').addStringOption((o) => o.setName('type').setDescription('Which channel').setRequired(true).addChoices(...CHANNEL_TYPES.map(([v, n]) => ({ name: n, value: v })))).addChannelOption((o) => o.setName('channel').setDescription('Channel (leave empty to clear)')))
     .addSubcommand((s) => s.setName('manager').setDescription('Toggle a manager role (staff server) — managers can verify/promote/strike/LOA').addRoleOption((o) => o.setName('role').setDescription('Role in the staff server').setRequired(true)))
-    .addSubcommand((s) => s.setName('role').setDescription('Set the Staff / LOA / Pending role for THIS server').addStringOption((o) => o.setName('type').setDescription('Which role').setRequired(true).addChoices({ name: 'Staff (given to every verified member)', value: 'staff' }, { name: 'LOA (given during breaks)', value: 'loa' }, { name: 'Pending (staff server: accepted, not yet verified)', value: 'pending' })).addRoleOption((o) => o.setName('role').setDescription('Role (leave empty to clear)')))
+    .addSubcommand((s) => s.setName('role').setDescription('Set the Staff / LOA / Pending / interview-manager role for THIS server').addStringOption((o) => o.setName('type').setDescription('Which role').setRequired(true).addChoices({ name: 'Staff (given to every verified member)', value: 'staff' }, { name: 'LOA (given during breaks)', value: 'loa' }, { name: 'Pending (staff server: accepted, not yet verified)', value: 'pending' }, { name: 'Interview managers (main server: can see interview channels)', value: 'managermain' })).addRoleOption((o) => o.setName('role').setDescription('Role (leave empty to clear)')))
+    .addSubcommand((s) => s.setName('interviews').setDescription('Category in the MAIN server where interview channels are created').addChannelOption((o) => o.setName('category').setDescription('Category (empty = top level)').addChannelTypes(ChannelType.GuildCategory)))
     .addSubcommand((s) => s.setName('department').setDescription('Create a department').addStringOption((o) => o.setName('name').setDescription('e.g. Moderation').setRequired(true).setMaxLength(40)).addStringOption((o) => o.setName('emoji').setDescription('Optional emoji').setMaxLength(8)))
     .addSubcommand((s) => s.setName('position').setDescription('Create a position (level) in a department, or set its role for THIS server').addStringOption((o) => o.setName('department').setDescription('Department').setRequired(true).setAutocomplete(true)).addStringOption((o) => o.setName('name').setDescription('Position name, e.g. Trial Mod (lowest first!)').setRequired(true).setMaxLength(40)).addRoleOption((o) => o.setName('role').setDescription('Role in THIS server for this position')).addStringOption((o) => o.setName('nickname').setDescription('Short tag used in nicknames, e.g. T-Mod').setMaxLength(12)))
     .addSubcommand((s) => s.setName('invite').setDescription('Permanent staff-server invite link sent to accepted applicants').addStringOption((o) => o.setName('url').setDescription('https://discord.gg/… (empty = auto-create a 1-use invite each time)')))
@@ -35,16 +37,15 @@ module.exports = {
       const { main, staff } = team.guilds(interaction.client, t);
       const ch = (id, g) => (id ? `<#${id}>` : '—');
       const role = (id) => (id ? `<@&${id}>` : '—');
-      const e = embed(COLORS.blue, '⚙️ StaffHub configuration')
-        .addFields(
+      const e = card({ color: COLORS.blue, title: '⚙️ StaffHub configuration', fields: [
           { name: 'Servers', value: `Main: **${main?.name || '?'}**\nStaff: **${staff?.name || '?'}**` },
           { name: 'Channels (staff server)', value: CHANNEL_TYPES.map(([k, n]) => `${n.replace(/ \(.*\)/, '')}: ${ch(t.channels[k])}`).join('\n') },
           { name: 'Manager roles (staff server)', value: t.managerRoles.length ? t.managerRoles.map(role).join(' ') : '— (admins only)' },
-          { name: 'Roles', value: `Staff: main ${role(t.roles.staffMain)} / staff ${role(t.roles.staffStaff)}\nLOA: main ${role(t.roles.loaMain)} / staff ${role(t.roles.loaStaff)}\nPending: ${role(t.roles.pendingStaff)}` },
+          { name: 'Roles', value: `Staff: main ${role(t.roles.staffMain)} / staff ${role(t.roles.staffStaff)}\nLOA: main ${role(t.roles.loaMain)} / staff ${role(t.roles.loaStaff)}\nPending: ${role(t.roles.pendingStaff)} · Interview managers (main): ${role(t.roles.managerMain)}` },
           { name: 'Departments', value: t.departments.length ? t.departments.map((d) => `**${d.name}**: ${d.levels.map((l) => l.nick && l.nick !== l.name ? `${l.name} (${l.nick})` : l.name).join(' → ') || '_no positions_'}`).join('\n') : '— none (dashboard → Roster)' },
-          { name: 'Other', value: `Nickname: \`${t.nicknameFormat}\`\nRequire application before verify: **${t.requireApplication ? 'yes' : 'no'}**\nStrike limit: **${t.strikeLimit}** → ${t.strikeAction}\nInvite: ${t.inviteUrl || 'auto'}` }
-        );
-      return interaction.reply({ embeds: [e], flags: MessageFlags.Ephemeral });
+          { name: 'Other', value: `Nickname: \`${t.nicknameFormat}\`\nRequire application before verify: **${t.requireApplication ? 'yes' : 'no'}**\nApplications: **${t.applicationsOpen ? 'open' : 'closed'}** · ${t.questions.length} questions · cooldown ${t.applyCooldownDays}d · blacklist ${Object.keys(t.blacklist).length}\nStrikes: limit **${t.strikeLimit}** → ${t.strikeAction}${t.strikeExpiryDays ? ` · expire after ${t.strikeExpiryDays}d` : ''}\nWeekly report: ${t.report.enabled ? `day ${t.report.day} at ${t.report.hour}:00 UTC` : 'off'}\nInvite: ${t.inviteUrl || 'auto'}` },
+        ] });
+      return interaction.reply(msg(e, { ephemeral: true }));
     }
 
     if (sub === 'channel') {
@@ -70,10 +71,18 @@ module.exports = {
       const type = interaction.options.getString('type');
       const r = interaction.options.getRole('role');
       if (type === 'pending' && !inStaff) return fail(interaction, 'The pending role is a **staff-server** role — run this there.');
-      const key = type === 'pending' ? 'pendingStaff' : `${type}${here === 'main' ? 'Main' : 'Staff'}`;
+      if (type === 'managermain' && inStaff) return fail(interaction, 'The interview-manager role is a **main-server** role — run this there.');
+      const key = type === 'pending' ? 'pendingStaff' : type === 'managermain' ? 'managerMain' : `${type}${here === 'main' ? 'Main' : 'Staff'}`;
       t.roles[key] = r ? r.id : null;
       store.save();
       return ok(interaction, `${type} role for the **${here}** server → ${r ? `${r}` : 'cleared'}.`);
+    }
+    if (sub === 'interviews') {
+      if (inStaff) return fail(interaction, 'Interview channels are created in the **main** server — run this there.');
+      const cat = interaction.options.getChannel('category');
+      t.interviewCategory = cat ? cat.id : null;
+      store.save();
+      return ok(interaction, `Interview channels will be created ${cat ? `under **${cat.name}**` : 'at the top level'}.`);
     }
     if (sub === 'department') {
       const name = interaction.options.getString('name').trim();

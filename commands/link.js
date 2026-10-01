@@ -1,8 +1,9 @@
 // /link setup | view | unlink  — connect a main server with its staff server.
-const { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const store = require('../lib/store');
 const team = require('../lib/team');
-const { COLORS, embed, ok, fail } = require('../lib/util');
+const { ok, fail } = require('../lib/util');
+const { COLORS, card, msg } = require('../lib/ui');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -20,12 +21,12 @@ module.exports = {
     if (sub === 'view') {
       if (!existing) return fail(interaction, 'This server is not linked. Run `/link setup` in the main server.');
       const { main, staff } = team.guilds(interaction.client, existing);
-      return interaction.reply({ embeds: [embed(COLORS.blue, '🔗 Server link').addFields(
+      return interaction.reply(msg(card({ color: COLORS.blue, title: '🔗 Server link', fields: [
         { name: 'Main server', value: `${main?.name || 'unknown'} (\`${existing.mainGuildId}\`)`, inline: true },
         { name: 'Staff server', value: `${staff?.name || 'unknown'} (\`${existing.staffGuildId}\`)`, inline: true },
         { name: 'Staff on roster', value: String(team.activeStaff(existing).length), inline: true },
         { name: 'Dashboard', value: process.env.BASE_URL ? `${process.env.BASE_URL}/dashboard/${existing.id}` : 'Open the bot\'s website and log in with Discord' },
-      )], flags: MessageFlags.Ephemeral });
+      ] }), { ephemeral: true }));
     }
 
     if (sub === 'unlink') {
@@ -49,6 +50,6 @@ module.exports = {
     const t = store.createTeam(interaction.guildId, staffId);
     store.activity(t, `🔗 Linked ${interaction.guild.name} ↔ ${staffGuild.name} by ${interaction.user.tag}`);
     store.save();
-    return interaction.reply({ embeds: [embed(COLORS.green, '🔗 Linked!', `**Main:** ${interaction.guild.name}\n**Staff:** ${staffGuild.name}\n\n**Next steps** (dashboard is easiest — log in on the bot's website):\n1. **Roster** → create departments and positions, pick a role for each in both servers\n2. **Settings** → applications / announcements / log / breaks channels, manager roles, LOA roles\n3. Members use \`/apply\` in the main server; managers **Accept** → applicant joins the staff server → \`/verify\`\n\nOr use \`/setup\` commands for the basics.`)] });
+    return interaction.reply(msg(card({ color: COLORS.green, title: '🔗 Linked!', text: `**Main:** ${interaction.guild.name}\n**Staff:** ${staffGuild.name}\n\n**Next steps** (dashboard is easiest — log in on the bot's website):\n1. **Roster** → create departments and positions, pick a role for each in both servers\n2. **Settings** → channels (applications, proof, verification, announcements, guide, roster…), manager roles, LOA roles\n3. Members use \`/apply\` in the main server; managers **Accept** → applicant joins the staff server → posts proof → manager approves with a position\n\nOr use \`/setup\` commands for the basics.` })));
   },
 };

@@ -1,7 +1,8 @@
-// /proof image [note] — accepted applicants send their verification proof (alternative to posting in the proof channel).
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+// /proof image [note] — accepted applicants send their verification proof (alternative to the proof channel).
+const { SlashCommandBuilder } = require('discord.js');
 const verification = require('../lib/verification');
 const { getTeam } = require('../lib/ctx');
+const ui = require('../lib/ui');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,10 +13,10 @@ module.exports = {
   async execute(interaction) {
     const t = await getTeam(interaction);
     if (!t) return;
-    if (interaction.guildId !== t.staffGuildId) return interaction.reply({ content: '❌ Send your proof in the **staff** server.', flags: MessageFlags.Ephemeral });
+    if (interaction.guildId !== t.staffGuildId) return interaction.reply(ui.fail('Send your proof in the **staff** server.'));
     const img = interaction.options.getAttachment('image');
-    if (!img.contentType?.startsWith('image/')) return interaction.reply({ content: '❌ The proof must be an image.', flags: MessageFlags.Ephemeral });
+    if (!img.contentType?.startsWith('image/')) return interaction.reply(ui.fail('The proof must be an image.'));
     const res = await verification.submit(interaction.client, t, { userId: interaction.user.id, tag: interaction.user.tag, proofUrl: img.url, note: interaction.options.getString('note') });
-    return interaction.reply({ content: `${res.ok ? '✅' : '❌'} ${res.text}`, flags: MessageFlags.Ephemeral });
+    return interaction.reply(res.ok ? ui.ok(res.text, { ephemeral: true }) : ui.fail(res.text));
   },
 };
